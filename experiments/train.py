@@ -33,34 +33,38 @@ def train_datum(input_tensor, target_tensor, encoder, decoder, encoder_optimizer
     use_teacher_forcing = True if random() < teacher_forcing_ratio else False
 
     for di in range(target_tensor.shape[1]):
-        print(di)
+
         tgt = target_tensor[:, di].unsqueeze(1)
-        decoder_output, decoder_hidden, decoder_attention = decoder(
+
+        if isinstance(decoder, BahdanauDecoder):
+            decoder_output, decoder_hidden, decoder_attention = decoder(
                 decoder_input, decoder_hidden, encoder_outputs)
-        # print(decoder_output.shape)
-        decoder_output = torch.transpose(decoder_output, 1, 2)
+            decoder_output = torch.transpose(decoder_output, 1, 2)
+        elif isinstance(decoder, DecoderRNN):
+            decoder_output, decoder_hidden = decoder(
+                decoder_input, decoder_hidden)
+            decoder_output = decoder_output.unsqueeze(2)
 
         if use_teacher_forcing:
             # Teacher forcing: Feed the target as the next input
-            print(decoder_input.shape, decoder_output.shape, tgt.shape)
+            # print(decoder_output.shape, tgt.shape)
             loss += criterion(decoder_output, tgt)
-            decoder_input = target_tensor[di]  # Teacher forcing
-            print(decoder_input.shape, 2)
+            decoder_input = target_tensor[:, di]  # Teacher forcing
+            # print(tgt, 1)
+            # print(decoder_output, 2)
         else:
             # Without teacher forcing: use its own predictions as the next input
-
-            topv, topi = decoder_output.topk(1)
-            decoder_input = topi.squeeze().detach()  # detach from history as input
-            print(decoder_input.shape, decoder_output.shape, tgt.shape)
-
+            decoder_input = torch.argmax(decoder_output.squeeze(), 1)
+            # print(decoder_output.shape, tgt.shape)
             loss += criterion(decoder_output, tgt)
-        print(loss.item())
+            # print(tgt, 1)
+            # print(decoder_output, 2)
 
     loss.backward()
 
     encoder_optimizer.step()
     decoder_optimizer.step()
-    # print(loss.item())
+
     return loss.item() / target_length
 
 def train(train_data, encoder, decoder, n_iters, print_every=1000, plot_every=100, learning_rate=0.01):
@@ -120,7 +124,10 @@ if __name__ == '__main__':
 
     hidden_size = 256
     encoder = EncoderRNN(train_dataset.src_vocab.vocab_size, hidden_size, train_dataset.src_vocab.pad_idx).to(device)
+
+    decoder = DecoderRNN(hidden_size, train_dataset.tgt_vocab.vocab_size, train_dataset.tgt_vocab.pad_idx)
     attn_decoder = BahdanauDecoder(hidden_size, test_dataset.tgt_vocab.vocab_size, train_dataset.tgt_vocab.pad_idx)
 
+    train(train_dataset, encoder, decoder, 75000, print_every=5000)
     train(train_dataset, encoder, attn_decoder, 75000, print_every=5000)
 

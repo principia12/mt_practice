@@ -32,11 +32,14 @@ class BahdanauDecoder(nn.Module):
     def __init__(self, hidden_size, output_size, padding_idx, n_layers=1, drop_prob=0.1):
         super(BahdanauDecoder, self).__init__()
         self.hidden_size = hidden_size
+
+        self.embedding = nn.Embedding(self.output_size, self.hidden_size, padding_idx)
+
         self.output_size = output_size
         self.n_layers = n_layers
         self.drop_prob = drop_prob
 
-        self.embedding = nn.Embedding(self.output_size, self.hidden_size, padding_idx)
+
 
         self.fc_hidden = nn.Linear(self.hidden_size, self.hidden_size, bias=False)
         self.fc_encoder = nn.Linear(self.hidden_size, self.hidden_size, bias=False)
